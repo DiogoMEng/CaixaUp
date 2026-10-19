@@ -1,0 +1,45 @@
+services:
+  dev:
+    build: ./api
+    container_name: caixaup_dev
+    command: npm run dev
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      DB_USER: ${DB_USERNAME}
+      DB_PASS: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_HOST: ${DB_HOST}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - ./api/:/app
+      - api_node_modules:/app/node_modules
+    depends_on:
+      - db
+
+  # test:
+  #   build: .
+  #   container_name: caixaup_api_test
+  #   command: npm run test:watch
+  #   working_dir: /app
+  #   ports:
+  #     - "4000:4000"
+  #   volumes:
+  #     - ./api/:/app:cached
+
+  db:
+    image: ${DB_DIALECT}
+    container_name: caixaup_db
+    environment:
+      - POSTGRES_USER=${DB_USERNAME}      
+      - POSTGRES_PASSWORD=${DB_PASSWORD}  
+      - POSTGRES_DB=${DB_NAME} 
+    ports:
+      - "5432:5432"
+    volumes:
+      - database:/var/lib/postgresql
+
+volumes:
+  database:
+  api_node_modules:

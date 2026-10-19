@@ -1,0 +1,64 @@
+import { DB } from '#models/index.js';
+import { Transaction } from '#interfaces/transaction.interface.js';
+import { BadRequestError, NotFoundError } from '#errors/httpErrors.js';
+import { Service } from './Service';
+
+class TransactionService extends Service<any, Transaction> {
+  constructor() {
+    super(DB.Transactions, 'transactionId');
+  }
+
+  async getAllTransactionsByUser(userId: string) {
+    return await super.getAll({
+      include: [
+        {
+          model: DB.BoxBottoms,
+          as: 'targetBox',
+          where: { userId },
+          attributes: ['name'],
+        },
+        {
+          model: DB.Categories,
+          as: 'transactionCategory',
+          attributes: ['name', 'type'],
+        },
+      ],
+      order: [['transactionDate', 'DESC']],
+      limit: 50,
+      attributes: {
+        exclude: ['boxBottomId', 'categoryId'],
+      },
+    });
+  }
+
+  async getAllTransactionsByBox(boxBottomId: string) {
+    return super.getAll({
+      where: { boxBottomId },
+      order: [['transactionDate', 'DESC']],
+    });
+  }
+
+  protected async beforeCreate(dto: Transaction): Promise<void> {
+    if (dto.value <= 0)
+      throw new BadRequestError('Valor deve ser maior que zero.');
+
+    const validMovementTypes = ['inflow', 'outflow'];
+    if (!validMovementTypes.includes(dto.movementType)) {
+      throw new BadRequestError('movementType inválido.');
+    }
+
+    const [box, cat] = await Promise.all([
+      DB.BoxBottoms.findByPk(dto.boxBottomId),
+      DB.Categories.findByPk(dto.categoryId),
+    ]);
+
+    if (!box || !cat)
+      throw new NotFoundError('Caixinha ou Categoria não encontrada.');
+  }
+
+  protected async afterCreate(record: any): Promise<void> {
+    console.log(`Log: Transação ${record.transactionId} criada com sucesso.`);
+  }
+}
+
+export default TransactionService;

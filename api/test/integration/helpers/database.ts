@@ -1,0 +1,30 @@
+import { DB } from '#models/index.js';
+
+export async function prepareDatabase(): Promise<void> {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('Integração exige NODE_ENV=test');
+  }
+  await DB.sequelize.authenticate();
+}
+
+export async function clearDatabase(): Promise<void> {
+  await DB.sequelize.query(
+    'TRUNCATE TABLE permissions, transactions, box_bottoms, categories, users, roles CASCADE',
+  );
+  await seedRoles();
+}
+
+async function seedRoles(): Promise<void> {
+  await DB.Roles.bulkCreate([
+    { name: 'OWNER', description: 'Owner role' },
+    { name: 'MANAGER', description: 'Manager role' },
+    { name: 'EDITOR', description: 'Editor role' },
+    { name: 'CONTRIBUTOR', description: 'Contributor role' },
+    { name: 'ANALYST', description: 'Analyst role' },
+    { name: 'VIEWER', description: 'Viewer role' },
+  ]);
+}
+
+export async function closeDatabase(): Promise<void> {
+  await DB.sequelize.close();
+}

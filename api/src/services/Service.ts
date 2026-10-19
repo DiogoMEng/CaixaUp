@@ -1,0 +1,73 @@
+import { v4 as uuidv4 } from 'uuid';
+import { Model, ModelStatic, Transaction } from 'sequelize';
+import { BadRequestError, NotFoundError } from '#errors/httpErrors.js';
+
+export abstract class Service<T extends Model, DTO> {
+  protected model: ModelStatic<T>;
+  protected primaryKey: string;
+
+  constructor(model: ModelStatic<T>, primaryKey: string) {
+    this.model = model;
+    this.primaryKey = primaryKey;
+  }
+
+  async create(
+    dto: DTO,
+    options: { transaction?: Transaction } = {},
+  ): Promise<T> {
+    await this.beforeCreate(dto, options.transaction);
+    const data = {
+      ...(dto as any),
+      [this.primaryKey]: uuidv4(),
+    };
+
+    let record: T;
+
+    try {
+      record = options.transaction
+        ? await this.model.create(data, options)
+        : await this.model.create(data);
+    } catch (error) {
+      throw new BadRequestError(`Erro ao criar registro em ${this.model.name}`);
+    }
+
+    await this.afterCreate(record, options.transaction);
+    return record;
+  }
+
+  async getAll(options: object = {}): Promise<T[]> {
+    return await this.model.findAll(options);
+  }
+
+  async getById(id: string, options: object = {}): Promise<T> {
+    const record = await this.model.findByPk(id, options);
+    if (!record) throw new NotFoundError(`${this.model.name} não encontrado`);
+    return record;
+  }
+
+  async update(id: string, dto: Partial<DTO>): Promise<boolean> {
+    const [affectedCount] = await this.model.update(dto as any, {
+      where: { [this.primaryKey]: id } as any,
+    });
+    return affectedCount > 0;
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const deletedCount = await this.model.destroy({
+      where: {
+        [this.primaryKey]: id,
+      } as any,
+    });
+
+    return deletedCount > 0;
+  }
+
+  protected async beforeCreate(
+    dto: DTO,
+    transaction?: Transaction,
+  ): Promise<void> {}
+  protected async afterCreate(
+    record: T,
+    transaction?: Transaction,
+  ): Promise<void> {}
+}
